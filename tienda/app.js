@@ -82,6 +82,12 @@ function img(p, colorIdx=0){
     <rect x="104" y="112" width="30" height="9" rx="4.5" fill="#2b2e35"/>
     <path d="M119 158 C119 214 196 214 192 150" fill="none" stroke="${shade(c,-.12)}" stroke-width="7" stroke-linecap="round"/>
     <rect x="184" y="118" width="16" height="34" rx="5" fill="url(#${id}b)"/>`;
+  else if(p.shape==='console') g = `
+    <path d="M70 92 H170 C200 92 214 118 220 150 C226 184 212 204 194 204 C178 204 170 190 160 176 H80 C70 190 62 204 46 204 C28 204 14 184 20 150 C26 118 40 92 70 92 Z" fill="url(#${id}b)"/>
+    <rect x="58" y="128" width="34" height="11" rx="3" fill="${d}"/><rect x="69.5" y="116.5" width="11" height="34" rx="3" fill="${d}"/>
+    <circle cx="166" cy="122" r="7" fill="#3aa0e0"/><circle cx="182" cy="138" r="7" fill="#e1543e"/><circle cx="150" cy="138" r="7" fill="#5ac46a"/><circle cx="166" cy="154" r="7" fill="#f2c94c"/>
+    <circle cx="100" cy="166" r="12" fill="${d}" opacity=".8"/><circle cx="140" cy="166" r="12" fill="${d}" opacity=".8"/>
+    <rect x="108" y="112" width="24" height="7" rx="3.5" fill="${d}" opacity=".6"/>`;
   else if(p.shape==='case') g = `
     <rect x="58" y="18" width="100" height="204" rx="21" fill="url(#${id}b)"/>
     <rect x="68" y="30" width="48" height="68" rx="15" fill="#e9ecf1"/>
@@ -105,7 +111,7 @@ function img(p, colorIdx=0){
 
 /* ===================== catálogos fijos ===================== */
 // categorías que el admin puede usar; en la tienda solo se muestran las que tienen productos
-const CATS = ['Teléfonos','Tablets','Smartwatch','Audio','Accesorios'];
+const CATS = ['Teléfonos','Tablets','Smartwatch','Audio','Consolas'];
 const catsEnUso = () => CATS.filter(c=>S.products.some(p=>p.active!==false && p.cat===c));
 const METODOS = {
   pago_movil:{n:'Pago móvil', cur:'Bs'}, transferencia:{n:'Transferencia bancaria', cur:'Bs'},
@@ -665,7 +671,7 @@ function vCatalogo(){
 function vProducto(){
   const p = P(S.route.id); if(!p) return `<div class="empty"><h2>Producto no encontrado</h2><button class="btn" data-act="cat" data-v="">Ver catálogo</button></div>`;
   const pd = S.pd; const price = unitPrice(p, pd.storage, pd.acc); const out = p.stock<=0;
-  const rel = S.products.filter(x=>x.id!==p.id && x.store===p.store && (x.cat===p.cat || x.cat==='Accesorios')).slice(0,4);
+  const rel = S.products.filter(x=>x.id!==p.id && x.store===p.store && x.cat===p.cat).slice(0,4);
   const wa = waLink(`Hola, quiero información sobre el ${p.name}.`, p.store);
   return `<div class="crumbs"><button data-act="go" data-v="inicio">Inicio</button>›<button data-act="cat" data-v="${esc(p.cat)}">${esc(p.cat)}</button>›<span>${esc(p.name)}</span></div>
   <section class="pdp">
@@ -820,7 +826,8 @@ function vCheckout(){
         ${cur==='Bs'?`<div class="field"><label for="co-bank">Banco de origen</label><select id="co-bank" data-in="bank">${BANKS.map(b=>`<option ${co.bank===b?'selected':''}>${b}</option>`).join('')}</select></div>`:''}
         <div class="field"><label for="co-ref">${cur==='Bs'?'Referencia':'ID de la orden (Binance)'}</label><input id="co-ref" data-in="ref" value="${esc(co.ref)}" placeholder="${cur==='Bs'?'Ej. 00418833':'ID de la orden en Binance'}"></div>
         <div class="field"><label for="co-amt">Monto pagado (${cur==='USD'?'USDT':cur})</label><input id="co-amt" data-in="amount" inputmode="decimal" value="${esc(co.amount)}" placeholder="${cur==='Bs'?bsPrice(k.hoy, co.store):k.hoy}"></div>
-        <div class="field"><span class="lbl">Comprobante</span>${fileBtn('co-file', 'image/*,application/pdf', 'data-on="file"', 'Subir captura del pago', co.file)}<span class="hint">Captura o PDF del pago (PDF de máximo 4 MB).</span></div>
+        ${cur==='USD'?`<div class="field"><span class="lbl">Captura del pago</span>${fileBtn('co-file', 'image/*,application/pdf', 'data-on="file"', 'Subir captura del pago', co.file)}<span class="hint">Captura o PDF de la orden en Binance (PDF de máximo 4 MB).</span></div>`
+          :`<div class="note info small" style="grid-column:1/-1">No necesitas subir captura: con el número de referencia la tienda confirma tu pago en su banco.</div>`}
       </div>`:''}
     </section>
   </div>
@@ -871,7 +878,7 @@ function terminosHTML(t){
       <li><b>Condición del equipo.</b> En la ficha de cada teléfono se indica si es nuevo o usado (Clase A, B o C, según su estado) y el estado de la batería.</li>
       <li><b>Garantía.</b> ${esc(t.garCubre)} <b>No se aceptan como garantía:</b> ${esc(t.garExcluye.charAt(0).toLowerCase()+t.garExcluye.slice(1))}</li>
       <li><b>Revisión al entregar.</b> El equipo se revisa contigo al momento de la entrega (pantalla, cornetas, Face ID, pin de carga, botones y liberación).</li>
-      <li><b>Pagos.</b> ${storeMethods(t.id).map(k=>METODOS[k].n).join(', ')}. Los pagos con comprobante se verifican antes de enviar el equipo. El efectivo lo registra la tienda cuando lo recibe.</li>
+      <li><b>Pagos.</b> ${storeMethods(t.id).map(k=>METODOS[k].n).join(', ')}. Los pagos por pago móvil, transferencia o Binance se verifican antes de entregar el equipo. El efectivo lo registra la tienda cuando lo recibe.</li>
       <li><b>Precio en bolívares.</b> Los precios están en dólares. Si pagas en bolívares, el monto se calcula con la tasa de ${esc(t.name)} del día del pago${t.recargoBs?' e incluye un ajuste por pago en bolívares':''}; por eso es distinto al monto en dólares.</li>
       <li><b>Reserva.</b> Tus productos quedan reservados ${S.cfg.reservaHoras} horas mientras se confirma el pago; si no se paga, el pedido se cancela.</li>
     </ol>
@@ -937,7 +944,7 @@ function vPrivacidad(){
     ['datos','Qué datos recopilamos', `<ul>
       <li><b>Al crear tu cuenta:</b> nombre y apellido, sexo, cédula, teléfono, correo y contraseña. La contraseña se guarda cifrada y nadie del comercio puede verla.</li>
       <li><b>Al comprar:</b> productos, dirección y ciudad de entrega, forma de pago y método de envío.</li>
-      <li><b>Al pagar:</b> banco de origen, número de referencia o ID de la orden de Binance, monto pagado y la captura o PDF del comprobante.</li>
+      <li><b>Al pagar:</b> banco de origen, número de referencia o ID de la orden de Binance, monto pagado y, en pagos por Binance, la captura o PDF del pago.</li>
       ${fin.length?`<li><b>Si pides un crédito:</b> fecha de nacimiento, estado, ciudad y dirección, tu ubicación en el momento de la solicitud (solo si la compartes), ocupación, lugar de trabajo, rango de ingreso, una referencia personal (nombre, teléfono y parentesco), una foto tuya y una foto de tu cédula.</li>`:''}
       <li><b>Si haces un encargo o te postulas para vender con nosotros:</b> los datos que escribas en el formulario.</li>
       <li><b>Al escribirnos por WhatsApp:</b> tu número y los mensajes que envíes.</li>
@@ -1019,8 +1026,8 @@ function vCuenta(){
         <div class="kpi"><div class="l">Créditos abiertos</div><div class="v num">${cr.filter(c=>['evaluacion','activo','en_mora'].includes(c.st)).length}</div></div>
       </div>
       ${cr.filter(c=>c.st==='en_mora').map(c=>`<div class="note bad">Tu crédito ${c.code} tiene cuotas vencidas. Cada cuota vencida suma ${usd(S.cfg.mora)} de mora. <button class="link" data-act="acct" data-v="creditos">Pagar ahora</button></div>`).join('')}
-      ${ords.filter(o=>o.st==='pendiente_pago').map(o=>`<div class="note warn">El pedido ${o.code} está reservado hasta el ${fdt(o.deadline)}. ${false?'':'<button class="link" data-act="payorder" data-o="'+o.id+'">Subir comprobante</button>'}</div>`).join('')}
-      ${ords.filter(o=>o.st==='pago_rechazado').map(o=>`<div class="note bad">No pudimos verificar el pago del pedido ${o.code}. <button class="link" data-act="payorder" data-o="${o.id}">Subir nuevo comprobante</button></div>`).join('')}
+      ${ords.filter(o=>o.st==='pendiente_pago').map(o=>`<div class="note warn">El pedido ${o.code} está reservado hasta el ${fdt(o.deadline)}. ${false?'':'<button class="link" data-act="payorder" data-o="'+o.id+'">Reportar pago</button>'}</div>`).join('')}
+      ${ords.filter(o=>o.st==='pago_rechazado').map(o=>`<div class="note bad">No pudimos verificar el pago del pedido ${o.code}. <button class="link" data-act="payorder" data-o="${o.id}">Reportar el pago de nuevo</button></div>`).join('')}
       <h2>Pedidos en curso</h2>${act.length?act.map(orderCard).join(''):'<div class="empty">No tienes pedidos en curso.</div>'}`;
   }
   if(t==='verificacion') body = verifPanel();
@@ -1054,7 +1061,7 @@ function orderCard(o){
       ${o.st==='enviado'&&o.courier==='Delivery propio'?`<div class="small">En camino con nuestro delivery${o.tracking?` · lo lleva <b>${esc(o.tracking)}</b>`:''}</div>`:o.tracking&&o.st!=='entregado'?`<div class="small">Envío por ${esc(o.courier||'')} · guía <b>${esc(o.tracking)}</b></div>`:''}
       ${o.ship.method==='retiro' && !['entregado','cancelado'].includes(o.st)?`<div class="retiro">${ico('chat')}<div><b>${o.st==='listo_retiro'?'Tu pedido está listo para retirar':'Retiro personal'}</b><p>${o.st==='listo_retiro'?'Escríbenos por WhatsApp para acordar dónde y cuándo lo retiras.':'Acordamos por WhatsApp dónde y cuándo lo retiras. Puedes escribirnos desde ya.'}</p>${ST(o.store).whatsapp?`<a class="btn wa sm" href="${retiroWa(o.store, o)}" target="_blank" rel="noopener">${ico('chat')} Acordar el retiro por WhatsApp</a>`:''}</div></div>`:''}
       ${o.st==='pendiente_pago'?`<div class="note warn small">Reservado hasta el ${fdt(o.deadline)}.</div>`:''}
-      ${['pendiente_pago','pago_rechazado'].includes(o.st)?`<div class="row">${true?`<button class="btn buy sm" data-act="payorder" data-o="${o.id}">${o.st==='pago_rechazado'?'Subir nuevo comprobante':'Subir comprobante'}</button>`:''}<button class="btn danger sm" data-act="cancelask" data-o="${o.id}">Cancelar pedido</button></div>`:''}
+      ${['pendiente_pago','pago_rechazado'].includes(o.st)?`<div class="row">${true?`<button class="btn buy sm" data-act="payorder" data-o="${o.id}">${o.st==='pago_rechazado'?'Reportar el pago de nuevo':'Reportar pago'}</button>`:''}<button class="btn danger sm" data-act="cancelask" data-o="${o.id}">Cancelar pedido</button></div>`:''}
     </div></article>`;
 }
 function creditCard(c){
@@ -1063,7 +1070,7 @@ function creditCard(c){
       <div><span>Crédito</span><b>${c.code}</b></div><div><span>Tienda</span>${storeChip(c.store)}</div><div><span>Pedido</span>${O(c.orderId)?.code||''}</div><div><span>Financiado</span><span class="num">${usd(c.financed)}</span></div>
       <div><span>Plan</span>${c.n} cuotas ${c.freq}${c.pct?` · +${Math.round(c.pct*100)}%`:''}</div><div><span>Saldo</span><b class="num">${usd(saldo(c))}</b></div></div>${tag(c.status)}</div>
     <div class="ob2">
-    ${c.st==='evaluacion'?`<div class="note warn small">${O(c.orderId)?.st==='pendiente_pago'?'Sube el comprobante de tu inicial para que evaluemos tu solicitud.':'Estamos revisando tu inicial. Al aprobarla generamos tu cronograma y despachamos el pedido.'}</div>`
+    ${c.st==='evaluacion'?`<div class="note warn small">${O(c.orderId)?.st==='pendiente_pago'?'Reporta el pago de tu inicial para que evaluemos tu solicitud.':'Estamos revisando tu inicial. Al aprobarla generamos tu cronograma y despachamos el pedido.'}</div>`
     : c.st==='rechazado'?`<div class="note bad small">La solicitud no fue aprobada. Te contactaremos para reintegrar la inicial.</div>`
     :`<div class="tbl"><table class="t"><thead><tr><th>Cuota</th><th>Vencimiento</th><th class="r">Monto</th><th class="r">Mora</th><th class="r">A pagar</th><th>Estado</th></tr></thead><tbody>
       ${c.cuotas.map(q=>{const late=q.status!=='pagada'&&q.due<today;return `<tr><td>${q.n} de ${c.n}</td><td class="nw">${fd(q.due)}</td><td class="r num">${usd(q.amount)}</td><td class="r num">${q.mora?`<span class="mora">${usd(q.mora)}</span>`:'—'}</td><td class="r num"><b>${q.status==='pagada'?'—':usd(cuotaDue(q))}</b></td>
@@ -1247,7 +1254,7 @@ function cuotaWa(c, q){
     + (late ? `Tu cuota ${q.n} de ${c.n} (crédito ${c.code}) venció el ${fd(q.due)}${q.mora?` y ya tiene ${usd(q.mora)} de mora`:''}. El monto a pagar es ${usd(cuotaDue(q))}.`
             : `Te recordamos que tu cuota ${q.n} de ${c.n} (crédito ${c.code}) por ${usd(cuotaDue(q))} vence el ${fd(q.due)}. Págala antes de esa fecha para evitar el cargo de ${usd(S.cfg.mora)} por mora.`)
     + (t.tasa ? ` En bolívares (pago móvil o transferencia) son ${bs(bsPrice(cuotaDue(q), c.store))} a la tasa de hoy.` : '')
-    + ` Puedes pagarla y subir el comprobante desde tu cuenta en ${location.host || 'la página'}. ¡Gracias!`;
+    + ` Puedes pagarla y reportar el pago desde tu cuenta en ${location.host || 'la página'}. ¡Gracias!`;
   return `<a class="btn sm" href="https://wa.me/${waNum(u.phone)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${ico('chat')} Recordar</a>`;
 }
 function aVentas(){
@@ -1893,9 +1900,10 @@ function payModal(ctx){
       ${cur==='Bs'?`<div class="field"><label for="pm-bank">Banco de origen</label><select id="pm-bank">${BANKS.map(b=>`<option>${b}</option>`).join('')}</select></div>`:''}
       <div class="field"><label for="pm-ref">${cur==='Bs'?'Referencia':'ID de la orden (Binance)'}</label><input id="pm-ref"></div>
       <div class="field"><label for="pm-amt">Monto pagado (${cur==='USD'?'USDT':cur})</label><input id="pm-amt" inputmode="decimal" value="${cur==='Bs'?bsPrice(M.amount, M.store):M.amount}"></div>
-      <div class="field"><span class="lbl">Comprobante</span>${fileBtn('pm-file', 'image/*,application/pdf', '', 'Subir captura del pago')}<span class="hint">Captura o PDF del pago (PDF de máximo 4 MB).</span></div>
+      ${cur==='USD'?`<div class="field"><span class="lbl">Captura del pago</span>${fileBtn('pm-file', 'image/*,application/pdf', '', 'Subir captura del pago')}<span class="hint">Captura o PDF de la orden en Binance (PDF de máximo 4 MB).</span></div>`
+        :`<div class="note info small" style="grid-column:1/-1">No necesitas subir captura: con el número de referencia la tienda confirma tu pago en su banco.</div>`}
       <div class="err" id="pm-err" style="grid-column:1/-1"></div>
-    </form>`, `<button class="btn" data-act="close">Cancelar</button><button class="btn buy" data-act="submitpay">Enviar comprobante</button>`);
+    </form>`, `<button class="btn" data-act="close">Cancelar</button><button class="btn buy" data-act="submitpay">Reportar pago</button>`);
 }
 function reviewModal(id){
   const p = S.payments.find(x=>x.id===id); const u = U(p.userId) || {}; M = {type:'review', id};
@@ -1910,7 +1918,7 @@ function reviewModal(id){
   const okL = p.kind==='contado'?'Verificar pago':p.kind==='inicial'?(u.verif==='pendiente'?'Aprobar crédito y verificar identidad':'Aprobar crédito'):'Verificar cuota';
   modal(`Revisar ${p.code}`, `
     ${short?`<div class="note warn small">El monto reportado equivale a ${usd(reportedUSD(p))} y se esperaban ${usd(p.expected)}. Faltan ${usd(-diff)}.</div>`:`<div class="note ok small">El monto reportado cubre el monto esperado.</div>`}
-    <div class="rcpt"><div id="rc-img" class="muted small">${p.path?'Cargando comprobante…':'Sin imagen adjunta.'}</div>
+    <div class="rcpt"><div id="rc-img" class="muted small">${p.path?'Cargando comprobante…':p.currency==='Bs'?'Sin captura: confirma la referencia y el monto en el banco de la tienda.':'Sin imagen adjunta.'}</div>
       <dl class="dl"><dt>Cliente</dt><dd>${esc(u.name)}<div class="muted small">${esc(u.cedula)} · ${esc(u.phone)}</div></dd><dt>Concepto</dt><dd>${concept(p)}</dd>
         <dt>Método</dt><dd>${metN(p.method)}${p.bank?' · '+esc(p.bank):''}</dd><dt>Referencia</dt><dd>${esc(p.ref)}</dd><dt>Recibido</dt><dd>${fdt(p.created)}</dd>
         <dt>Esperado</dt><dd class="num">${usd(p.expected)}${p.currency==='Bs'?` · ${bs(r2(p.expected*(1+(p.recargo||0))*p.tasa))}`:''}</dd><dt>Reportado</dt><dd class="num">${amtTxt(p)}</dd>${p.currency==='Bs'?`<dt>Tasa usada</dt><dd>${bs(p.tasa)}</dd>`:''}${extra}</dl></div>
@@ -2058,8 +2066,8 @@ async function placeOrder(){
     if(cur==='Bs' ? !/^\d{6,}$/.test(ref) : !/^[A-Za-z0-9]{6,}$/.test(ref)) return fail(cur==='Bs' ? 'La referencia debe tener al menos 6 dígitos.' : 'El ID de la orden de Binance debe tener al menos 6 caracteres.');
     const amt = parseAmt(co.amount || (cur==='Bs' ? bsPrice(k.hoy, co.store) : k.hoy));
     if(!(amt>0)) return fail('Escribe el monto que pagaste.');
-    if(!co.file) return fail('Adjunta la imagen o PDF del comprobante.');
-    pago = {banco: cur==='Bs' ? co.bank : '', referencia: ref, monto_reportado: amt, comprobante_path: await uploadProof(co.file)};
+    if(cur==='USD' && !co.file) return fail('Adjunta la captura del pago en Binance.');
+    pago = {banco: cur==='Bs' ? co.bank : '', referencia: ref, monto_reportado: amt, comprobante_path: cur==='USD' ? await uploadProof(co.file) : null};
   }
   const payload = { items: items.map(i=>({producto_id:i.pid, color_idx:i.ci, cap_idx:i.si, cantidad:i.qty, accesorios:!!i.acc})),
     modalidad: co.mode, n_cuotas: co.n, frecuencia: co.mode==='financiado' ? co.freq : null, acepta_terminos: true, inicial_pct: co.ini, envio_metodo: co.ship, direccion: co.ship==='retiro' ? '' : co.addr, ciudad: co.ship==='retiro' ? '' : co.city,
@@ -2078,12 +2086,13 @@ async function submitPay(){
   const ref = $('#pm-ref').value.trim();
   if(cur==='Bs' ? !/^\d{6,}$/.test(ref) : !/^[A-Za-z0-9]{6,}$/.test(ref)){ err.textContent = cur==='Bs' ? 'La referencia debe tener al menos 6 dígitos.' : 'El ID de la orden de Binance debe tener al menos 6 caracteres.'; return; }
   const amt = parseAmt($('#pm-amt').value); if(!(amt>0)){ err.textContent = 'Escribe el monto que pagaste.'; return; }
-  const file = $('#pm-file').files[0]; if(!file){ err.textContent = 'Adjunta la imagen o PDF del comprobante.'; return; }
+  const file = cur==='USD' ? $('#pm-file')?.files[0] : null;
+  if(cur==='USD' && !file){ err.textContent = 'Adjunta la captura del pago en Binance.'; return; }
   try{
-    const path = await uploadProof(file);
+    const path = file ? await uploadProof(file) : null;
     const base = {metodo:M.method, banco:bank, referencia:ref, monto_reportado:amt, comprobante_path:path};
     await rpc('enviar_comprobante', {p: M.kind==='cuota' ? {tipo:'cuotas', credito_id:M.creditId, cantidad_cuotas:M.count, ...base} : {tipo:'pedido', pedido_id:M.orderId, ...base}});
-    closeModal(); await refresh(); toast('Comprobante enviado. Te avisaremos cuando lo verifiquemos.');
+    closeModal(); await refresh(); toast('Pago reportado. Te avisaremos cuando lo verifiquemos.');
   }catch(e){ err.textContent = friendly(e); }
 }
 
