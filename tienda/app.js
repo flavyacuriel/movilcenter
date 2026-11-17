@@ -1362,7 +1362,7 @@ function productModal(id){
       <div class="field"><label for="pf-cond">Condición</label><select id="pf-cond">${Object.entries(CONDS).filter(([k])=>k!=='usado'||p?.cond==='usado').map(([k,v])=>`<option value="${k}" ${(p?.cond||'nuevo')===k?'selected':''}>${v}</option>`).join('')}</select></div>
       <div class="field"><label for="pf-gama">Gama</label><select id="pf-gama">${Object.entries(GAMAS).map(([k,v])=>`<option value="${k}" ${(p?.gama||'media')===k?'selected':''}>${v}</option>`).join('')}</select></div>
       <div class="field"><label for="pf-bat">Batería (%) <span class="muted">(opcional)</span></label><input id="pf-bat" inputmode="numeric" data-digits="3" value="${p?.bat??''}" placeholder="Ej. 90"></div>
-      <div class="field"><label for="pf-acc">Precio del teléfono con accesorios (USD) <span class="muted">(opcional)</span></label><input id="pf-acc" inputmode="decimal" value="${p?.acc!=null?+(p.price+p.acc).toFixed(2):''}" placeholder="Vacío = no se ofrece"><span class="hint">El precio total, con los accesorios incluidos. Ej.: si el teléfono cuesta $570 y con accesorios $585, escribe 585. Vacío = no se ofrecen.</span></div>
+      <div class="field"><label for="pf-acc">Precio de los accesorios (USD) <span class="muted">(opcional)</span></label><input id="pf-acc" inputmode="decimal" value="${p?.acc??''}" placeholder="Ej. 15"><span class="hint">Solo lo que se suma al precio del teléfono si el cliente los quiere. Ej.: escribe 15 y el teléfono de $570 queda en $585 con accesorios. Vacío = no se ofrecen.</span></div>
       <div class="field"><label for="pf-accd">Qué accesorios incluye</label><input id="pf-accd" value="${esc(p?.accDesc||'')}" placeholder="Ej. Cargador, forro y vidrio templado"></div>
       <div class="field" hidden><label for="pf-gar">Garantía</label><input id="pf-gar" inputmode="numeric" data-digits="2" value="${p?.gar??''}" placeholder="Ej. 2"></div>
       <div class="field"><label for="pf-col">Colores <span class="muted">(separados por coma)</span></label><input id="pf-col" value="${esc(p?p.colors.map(c=>c.n).join(', '):'')}" placeholder="Ej. Negro, Titanio, Blanco"></div>
@@ -1412,8 +1412,9 @@ async function saveProduct(){
   const bat = $('#pf-bat').value.trim(), gar = $('#pf-gar').value.trim();
   if(bat && !(+bat>=1 && +bat<=100)){ err.textContent = 'La batería debe estar entre 1 y 100%.'; return; }
   const accv = $('#pf-acc').value.trim();
-  const accExtra = accv ? +(parseAmt(accv) - precio).toFixed(2) : null;
-  if(accv && !(accExtra>0)){ err.textContent = `El precio con accesorios debe ser mayor que el precio del teléfono (${usd(precio)}).`; return; }
+  const accExtra = accv ? +parseAmt(accv).toFixed(2) : null;
+  if(accv && !(accExtra>0)){ err.textContent = 'El precio de los accesorios debe ser mayor a 0.'; return; }
+  if(accv && accExtra >= precio){ err.textContent = `En accesorios escribe solo lo que se suma (ej. 15), no el precio total del teléfono.`; return; }
   const equipo = {condicion:$('#pf-cond').value, gama:$('#pf-gama').value, bateria:bat, garantia_meses:'', accesorios_extra: accv ? String(accExtra) : '', accesorios_desc:$('#pf-accd').value.trim()};
   if($('#pf-cs')){ const vs = $('#pf-cs').value.trim(), vq = $('#pf-cq').value.trim();
     if(vs && !(/^\d+$/.test(vs) && +vs>=1 && +vs<=52)){ err.textContent = 'Las cuotas semanales deben ser un número de 1 a 52.'; return; }
