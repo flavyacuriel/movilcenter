@@ -1362,7 +1362,7 @@ function productModal(id){
       <div class="field"><label for="pf-cond">Condición</label><select id="pf-cond">${Object.entries(CONDS).filter(([k])=>k!=='usado'||p?.cond==='usado').map(([k,v])=>`<option value="${k}" ${(p?.cond||'nuevo')===k?'selected':''}>${v}</option>`).join('')}</select></div>
       <div class="field"><label for="pf-gama">Gama</label><select id="pf-gama">${Object.entries(GAMAS).map(([k,v])=>`<option value="${k}" ${(p?.gama||'media')===k?'selected':''}>${v}</option>`).join('')}</select></div>
       <div class="field"><label for="pf-bat">Batería (%) <span class="muted">(opcional)</span></label><input id="pf-bat" inputmode="numeric" data-digits="3" value="${p?.bat??''}" placeholder="Ej. 90"></div>
-      <div class="field"><label for="pf-acc">Precio extra con accesorios (USD) <span class="muted">(opcional)</span></label><input id="pf-acc" inputmode="decimal" value="${p?.acc??''}" placeholder="Vacío = no se ofrece"><span class="hint">Si lo llenas, el cliente elige con o sin accesorios.</span></div>
+      <div class="field"><label for="pf-acc">Precio del teléfono con accesorios (USD) <span class="muted">(opcional)</span></label><input id="pf-acc" inputmode="decimal" value="${p?.acc!=null?+(p.price+p.acc).toFixed(2):''}" placeholder="Vacío = no se ofrece"><span class="hint">El precio total, con los accesorios incluidos. Ej.: si el teléfono cuesta $570 y con accesorios $585, escribe 585. Vacío = no se ofrecen.</span></div>
       <div class="field"><label for="pf-accd">Qué accesorios incluye</label><input id="pf-accd" value="${esc(p?.accDesc||'')}" placeholder="Ej. Cargador, forro y vidrio templado"></div>
       <div class="field" hidden><label for="pf-gar">Garantía</label><input id="pf-gar" inputmode="numeric" data-digits="2" value="${p?.gar??''}" placeholder="Ej. 2"></div>
       <div class="field"><label for="pf-col">Colores <span class="muted">(separados por coma)</span></label><input id="pf-col" value="${esc(p?p.colors.map(c=>c.n).join(', '):'')}" placeholder="Ej. Negro, Titanio, Blanco"></div>
@@ -1412,8 +1412,9 @@ async function saveProduct(){
   const bat = $('#pf-bat').value.trim(), gar = $('#pf-gar').value.trim();
   if(bat && !(+bat>=1 && +bat<=100)){ err.textContent = 'La batería debe estar entre 1 y 100%.'; return; }
   const accv = $('#pf-acc').value.trim();
-  if(accv && !(parseAmt(accv)>0)){ err.textContent = 'El precio extra de los accesorios debe ser mayor a 0.'; return; }
-  const equipo = {condicion:$('#pf-cond').value, gama:$('#pf-gama').value, bateria:bat, garantia_meses:'', accesorios_extra: accv ? String(parseAmt(accv)) : '', accesorios_desc:$('#pf-accd').value.trim()};
+  const accExtra = accv ? +(parseAmt(accv) - precio).toFixed(2) : null;
+  if(accv && !(accExtra>0)){ err.textContent = `El precio con accesorios debe ser mayor que el precio del teléfono (${usd(precio)}).`; return; }
+  const equipo = {condicion:$('#pf-cond').value, gama:$('#pf-gama').value, bateria:bat, garantia_meses:'', accesorios_extra: accv ? String(accExtra) : '', accesorios_desc:$('#pf-accd').value.trim()};
   if($('#pf-cs')){ const vs = $('#pf-cs').value.trim(), vq = $('#pf-cq').value.trim();
     if(vs && !(/^\d+$/.test(vs) && +vs>=1 && +vs<=52)){ err.textContent = 'Las cuotas semanales deben ser un número de 1 a 52.'; return; }
     if(vq && !(/^\d+$/.test(vq) && +vq>=1 && +vq<=26)){ err.textContent = 'Las cuotas quincenales deben ser un número de 1 a 26.'; return; }
@@ -2005,8 +2006,13 @@ async function afterLogin(){
 function addToCart(pid, ci, si, qty, acc=false){
   const p = P(pid); acc = !!acc && p.acc!=null; const key = `${pid}-${ci}-${si}${acc?'-a':''}`;
   const inCart = sum(S.cart.filter(i=>i.pid===pid), i=>i.qty);
-  if(inCart + qty > p.stock){ toast(`Solo hay ${p.stock} unidades disponibles de ${p.name}.`); return false; }
   const it = S.cart.find(i=>i.key===key);
+  if(inCart + qty > p.stock){
+    // el mismo equipo ya está en el carrito con la otra opción de accesorios: se cambia esa opción, no se suma otro equipo
+    const other = !it && S.cart.find(i=>i.pid===pid && i.ci===ci && i.si===si && !!i.acc!==acc);
+    if(other){ other.acc = acc; other.key = key; other.unit = unitPrice(p, si, acc); S.co = null; saveCart();
+      toast(acc ? `Listo: tu ${p.name} ahora va con accesorios.` : `Listo: tu ${p.name} ahora va sin accesorios.`); return 'swap'; }
+    toast(inCart>0 && p.stock===1 ? `Solo queda 1 unidad de ${p.name} y ya está en tu carrito.` : `Solo hay ${p.stock} unidad${p.stock===1?'':'es'} disponible${p.stock===1?'':'s'} de ${p.name}.`); return false; }
   if(it) it.qty += qty; else S.cart.push({key, pid, ci, si, qty, name:p.name, color:p.colors[ci]?.n, storage:p.storages?p.storages[si].n:null, acc, unit:unitPrice(p,si,acc)});
   S.co = null; saveCart(); return true;
 }
@@ -2142,13 +2148,13 @@ const ACT = {
   pstor: d => { S.pd.storage = +d.i; render(); },
   pqty: d => { const p = P(S.route.id); S.pd.qty = Math.max(1, Math.min(p.stock, S.pd.qty + +d.d)); render(); },
   add: d => { const pid=+d.id; const onPd = S.route.v==='producto' && S.route.id===pid;
-    if(addToCart(pid, onPd?S.pd.color:0, onPd?S.pd.storage:0, onPd?S.pd.qty:1, onPd&&S.pd.acc)){ renderChrome(); toast(`${P(pid).name} agregado al carrito.`); } },
+    const r = addToCart(pid, onPd?S.pd.color:0, onPd?S.pd.storage:0, onPd?S.pd.qty:1, onPd&&S.pd.acc); if(r){ renderChrome(); if(r!=='swap') toast(`${P(pid).name} agregado al carrito.`); } },
   buynow: d => { if(addToCart(+d.id, S.pd.color, S.pd.storage, S.pd.qty, S.pd.acc)) go('carrito'); },
   pacc: d => { S.pd.acc = d.v==='1'; render(); },
   buyfin: d => { const p = P(+d.id); if(addToCart(+d.id, S.pd.color, S.pd.storage, S.pd.qty, S.pd.acc)){ S.co = null; S.coStore = p.store; S.coMode = 'financiado'; go('checkout'); } },
   fabwa: () => { S.fab = !S.fab; renderFab(); },
   cqty: d => { const it = S.cart[+d.i]; const p = P(it.pid); const n = it.qty + +d.d;
-    if(n > it.qty && sum(S.cart.filter(i=>i.pid===it.pid),i=>i.qty) >= p.stock){ toast(`Solo hay ${p.stock} unidades disponibles.`); return; }
+    if(n > it.qty && sum(S.cart.filter(i=>i.pid===it.pid),i=>i.qty) >= p.stock){ toast(p.stock===1 ? 'Solo queda 1 unidad.' : `Solo hay ${p.stock} unidades disponibles.`); return; }
     it.qty = n; if(it.qty<=0) S.cart.splice(+d.i,1); S.co=null; saveCart(); render(); },
   crem: d => { S.cart.splice(+d.i,1); S.co=null; saveCart(); render(); },
   tocheckout: d => { S.coStore = +d.s || cartStores()[0]; S.co = null; if(!me()) S.after = 'checkout'; go('checkout'); render(); },
